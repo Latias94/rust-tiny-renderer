@@ -1,5 +1,5 @@
 use crate::math::Vec2;
-use crate::tga::{ColorSpace, Image};
+use crate::tga::{ColorSpace, Image, GREEN, RED, RGBA, WHITE};
 use std::mem::swap;
 use std::path::Path;
 
@@ -77,9 +77,160 @@ impl<T: ColorSpace + Copy> Rasterizer<T> {
         }
     }
 
+    /// A good method of drawing a triangle must have the following features:
+    /// * It should be (surprise!) simple and fast.
+    /// * It should be symmetrical: the picture should not depend on the order of vertices passed to the drawing function.
+    /// * If two triangles have two common vertices, there should be no holes between them because of rasterization rounding.
+    /// * We could add more requirements, but let’s do with these ones. Traditionally a line sweeping is used:
+    /// 1. Sort vertices of the triangle by their y-coordinates;
+    /// 2. Rasterize simultaneously the left and the right sides of the triangle;
+    /// 3. Draw a horizontal line segment between the left and the right boundary points.
+    /// 根据三个顶点的 y 坐标判定是否有两个相等，有则判断是平底还是平顶三角形，直接画找到 y 值在中间的点，划分出上下两个三角形，画两个
+    /// 另一种画三角形是遍历 bounding box 的点，判断点在不在三角形内。
     pub fn triangle(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>, color: T) {
-        self.line(t0, t1, color);
-        self.line(t1, t2, color);
-        self.line(t2, t0, color);
+        let mut t0 = t0;
+        let mut t1 = t1;
+        let mut t2 = t2;
+        if t0.y > t1.y {
+            swap(&mut t0, &mut t1);
+        }
+        if t0.y > t2.y {
+            swap(&mut t0, &mut t2);
+        }
+        if t1.y > t2.y {
+            swap(&mut t1, &mut t2);
+        }
+
+        let total_height = t2.y - t0.y;
+
+        for i in 0..total_height {
+            let second_half = i > t1.y - t0.y || t1.y == t0.y;
+            let segment_height = if second_half {
+                t2.y - t1.y
+            } else {
+                t1.y - t0.y
+            };
+            let alpha: f64 = i as f64 / total_height as f64;
+            let minus_height = if second_half { t1.y - t0.y } else { 0 };
+            let beta: f64 = (i - minus_height) as f64 / segment_height as f64; // be careful: with above conditions no division by zero here
+
+            // 以t1.y水平为分界线，划分两个三角形后，算出两个边当前y值的点，分别为 a, b
+            let mut a = t0 + (t2 - t0) * alpha;
+            let mut b = if second_half {
+                t1 + (t2 - t1) * beta
+            } else {
+                t0 + (t1 - t0) * beta
+            };
+            // 再排序一下 防止 gap
+            if a.x > b.x {
+                swap(&mut a, &mut b);
+            }
+            // 因为外面先从 y 遍历，因此横向 x 可能会相差大于 1 个像素，因此要横向填充好
+            for x in a.x..=b.x {
+                self.image.set(x as usize, (t0.y + i) as usize, color).ok(); // attention, due to int casts t0.y+i != a.y
+            }
+        }
+    }
+}
+
+impl Rasterizer<RGBA> {
+    pub fn triangle_test_1(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>) {
+        let mut t0 = t0;
+        let mut t1 = t1;
+        let mut t2 = t2;
+        if t0.y > t1.y {
+            swap(&mut t0, &mut t1);
+        }
+        if t0.y > t2.y {
+            swap(&mut t0, &mut t2);
+        }
+        if t1.y > t2.y {
+            swap(&mut t1, &mut t2);
+        }
+        self.line(t0, t1, GREEN);
+        self.line(t1, t2, GREEN);
+        self.line(t2, t0, RED);
+    }
+
+    pub fn triangle_test_2(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>) {
+        let mut t0 = t0;
+        let mut t1 = t1;
+        let mut t2 = t2;
+        if t0.y > t1.y {
+            swap(&mut t0, &mut t1);
+        }
+        if t0.y > t2.y {
+            swap(&mut t0, &mut t2);
+        }
+        if t1.y > t2.y {
+            swap(&mut t1, &mut t2);
+        }
+
+        let total_height = t2.y - t0.y;
+        let segment_height = t1.y - t0.y + 1;
+
+        // 下半个三角形
+        for y in t0.y..=t1.y {
+            let alpha = (y - t0.y) as f64 / total_height as f64;
+            let beta = (y - t0.y) as f64 / segment_height as f64; // be careful with divisions by zero
+            let alpha_t = (t2 - t0) * alpha;
+            let beta_t = (t1 - t0) * beta;
+            // 以t1.y水平为分界线，划分两个三角形后，算出两个边当前y值的点，分别为 p0, p1
+            let p0 = t0 + alpha_t;
+            let p1 = t0 + beta_t;
+            self.image.set(p0.x as usize, y as usize, RED).ok();
+            self.image.set(p1.x as usize, y as usize, GREEN).ok();
+        }
+    }
+
+    pub fn triangle_test_3(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>) {
+        let mut t0 = t0;
+        let mut t1 = t1;
+        let mut t2 = t2;
+        if t0.y > t1.y {
+            swap(&mut t0, &mut t1);
+        }
+        if t0.y > t2.y {
+            swap(&mut t0, &mut t2);
+        }
+        if t1.y > t2.y {
+            swap(&mut t1, &mut t2);
+        }
+
+        let total_height = (t2.y - t0.y) as f64;
+        let segment_height_t1_t0 = (t1.y - t0.y + 1) as f64;
+        let segment_height_t2_t1 = (t2.y - t1.y + 1) as f64;
+
+        // 下半个三角形
+        for y in t0.y..=t1.y {
+            let alpha = (y - t0.y) as f64 / total_height;
+            let beta = (y - t0.y) as f64 / segment_height_t1_t0; // be careful with divisions by zero
+
+            // 以t1.y水平为分界线，划分两个三角形后，算出两个边当前y值的点，分别为 a, b
+            let mut a = t0 + (t2 - t0) * alpha;
+            let mut b = t0 + (t1 - t0) * beta;
+            // 再排序一下 防止 gap
+            if a.x > b.x {
+                swap(&mut a, &mut b);
+            }
+            // 因为外面先从 y 遍历，因此横向 x 可能会相差大于 1 个像素，因此要横向填充好
+            for x in a.x..=b.x {
+                self.image.set(x as usize, y as usize, RED).ok(); // attention, due to int casts t0.y+i != a.y
+            }
+        }
+        // 上半个三角形
+        for y in t1.y..=t2.y {
+            let alpha = (y - t0.y) as f64 / total_height;
+            let beta = (y - t1.y) as f64 / segment_height_t2_t1; // be careful with divisions by zero
+            let mut a = t0 + (t2 - t0) * alpha;
+            let mut b = t1 + (t2 - t1) * beta;
+            // 再排序一下 防止 gap
+            if a.x > b.x {
+                swap(&mut a, &mut b);
+            }
+            for x in a.x..=b.x {
+                self.image.set(x as usize, y as usize, WHITE).ok(); // attention, due to int casts t0.y+i != a.y
+            }
+        }
     }
 }

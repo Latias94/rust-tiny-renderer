@@ -1,3 +1,4 @@
+use rand::Rng;
 use std::fs::File;
 use std::io;
 use std::io::Write;
@@ -230,12 +231,99 @@ impl<T: ColorSpace + Copy> Image<T> {
     }
 }
 
+impl RGBA {
+    #[allow(dead_code)]
+    pub fn random_color() -> Self {
+        fn random_u8() -> u8 {
+            rand::thread_rng().gen::<u8>()
+        }
+        Self {
+            r: random_u8(),
+            g: random_u8(),
+            b: random_u8(),
+            a: 255,
+        }
+    }
+}
+
+impl RGB {
+    pub fn random_color() -> Self {
+        fn random_u8() -> u8 {
+            rand::thread_rng().gen::<u8>()
+        }
+        Self {
+            r: random_u8(),
+            g: random_u8(),
+            b: random_u8(),
+        }
+    }
+}
+
+impl From<RGBA> for RGB {
+    fn from(rgba: RGBA) -> Self {
+        Self {
+            r: rgba.r,
+            g: rgba.g,
+            b: rgba.b,
+        }
+    }
+}
+
+impl From<RGB> for RGBA {
+    fn from(rgb: RGB) -> Self {
+        Self {
+            r: rgb.r,
+            g: rgb.g,
+            b: rgb.b,
+            a: 255,
+        }
+    }
+}
+
+impl From<Grayscale> for RGBA {
+    fn from(g: Grayscale) -> Self {
+        Self {
+            r: g.i,
+            g: g.i,
+            b: g.i,
+            a: 255,
+        }
+    }
+}
+
+impl From<Grayscale> for RGB {
+    fn from(g: Grayscale) -> Self {
+        Self {
+            r: g.i,
+            g: g.i,
+            b: g.i,
+        }
+    }
+}
+
+impl From<RGBA> for Grayscale {
+    fn from(rgba: RGBA) -> Self {
+        Self {
+            i: (rgba.r as f32 * 0.3 + rgba.g as f32 * 0.6 + rgba.b as f32 * 0.11) as u8,
+        }
+    }
+}
+
+impl From<RGB> for Grayscale {
+    fn from(rgb: RGB) -> Self {
+        Self {
+            i: (rgb.r as f32 * 0.3 + rgb.g as f32 * 0.6 + rgb.b as f32 * 0.11) as u8,
+        }
+    }
+}
+
 pub const WHITE: RGBA = RGBA {
     r: 255,
     g: 255,
     b: 255,
     a: 255,
 };
+
 pub const BLACK: RGBA = RGBA {
     r: 0,
     g: 0,

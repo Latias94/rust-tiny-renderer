@@ -1,10 +1,11 @@
+use crate::math::Vec3;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use crate::math::Vec3;
 
 // http://en.wikipedia.org/wiki/Wavefront_.obj_file
 pub struct Model {
     pub vertices: Vec<Vec3<f32>>,
+    pub normals: Vec<Vec3<f32>>,
     pub faces: Vec<Vec<usize>>,
 }
 
@@ -53,11 +54,16 @@ impl Model {
         };
         let reader = BufReader::new(f);
         let mut vertices = Vec::new();
+        let mut normals = Vec::new();
         let mut faces = Vec::new();
         for line in reader.lines().flatten() {
             if let Some(end) = line.strip_prefix("v ") {
                 if let Ok(vertex) = get_vertices(end) {
                     vertices.push(vertex);
+                }
+            } else if let Some(end) = line.strip_prefix("vn ") {
+                if let Ok(vertex) = get_vertices(end) {
+                    normals.push(vertex);
                 }
             } else if let Some(end) = line.strip_prefix("f ") {
                 if let Ok(vertex) = get_face_indicies(end) {
@@ -65,7 +71,7 @@ impl Model {
                 }
             }
         }
-        Ok(Model { vertices, faces })
+        Ok(Model { vertices, normals, faces })
     }
 
     pub fn num_vertices(&self) -> usize {
@@ -78,6 +84,10 @@ impl Model {
 
     pub fn vertex(&self, i: usize) -> &Vec3<f32> {
         &self.vertices[i]
+    }
+
+    pub fn normal(&self, i: usize) -> &Vec3<f32> {
+        &self.normals[i]
     }
 
     pub fn face(&self, i: usize) -> &Vec<usize> {
