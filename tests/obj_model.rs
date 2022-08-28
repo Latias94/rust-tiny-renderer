@@ -1,3 +1,4 @@
+use tinyrenderer::math::Vec2;
 use tinyrenderer::model::Model;
 use tinyrenderer::rasterizer::Rasterizer;
 use tinyrenderer::tga::RGB;
@@ -23,7 +24,7 @@ fn test_wire_renderer() {
             let y0 = ((v0.y + 1.) * (height as f32) / 2.) as isize;
             let x1 = ((v1.x + 1.) * (width as f32) / 2.) as isize;
             let y1 = ((v1.y + 1.) * (height as f32) / 2.) as isize;
-            rasterizer.line(x0, y0, x1, y1, WHITE)
+            rasterizer.line(Vec2::new(x0, y0), Vec2::new(x1, y1), WHITE)
         }
     }
 

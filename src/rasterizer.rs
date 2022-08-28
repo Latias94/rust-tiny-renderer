@@ -1,3 +1,4 @@
+use crate::math::Vec2;
 use crate::tga::{ColorSpace, Image};
 use std::mem::swap;
 use std::path::Path;
@@ -24,7 +25,11 @@ impl<T: ColorSpace + Copy> Rasterizer<T> {
     /// Both the multiplication/division and the use of floating-point numbers can be avoided
     /// by using a specific version of Bresenham’s algorithm.
     /// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-    pub fn line(&mut self, mut x0: isize, mut y0: isize, mut x1: isize, mut y1: isize, color: T) {
+    pub fn line(&mut self, p0: Vec2<isize>, p1: Vec2<isize>, color: T) {
+        let mut x0 = p0.x;
+        let mut y0 = p0.y;
+        let mut x1 = p1.x;
+        let mut y1 = p1.y;
         // Is it steeper than 45°? If so, we transpose the line
         // (https://en.wikipedia.org/wiki/Transpose). This
         // essentially guarantees we are drawing a line less
@@ -70,5 +75,11 @@ impl<T: ColorSpace + Copy> Rasterizer<T> {
             }
             x += 1;
         }
+    }
+
+    pub fn triangle(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>, color: T) {
+        self.line(t0, t1, color);
+        self.line(t1, t2, color);
+        self.line(t2, t0, color);
     }
 }

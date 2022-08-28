@@ -32,26 +32,6 @@ pub struct RGBA {
     pub a: u8,
 }
 
-pub const WHITE: RGBA = RGBA {
-    r: 255,
-    g: 255,
-    b: 255,
-    a: 255,
-};
-pub const BLACK: RGBA = RGBA {
-    r: 0,
-    g: 0,
-    b: 0,
-    a: 255,
-};
-
-pub const RED: RGBA = RGBA {
-    r: 255,
-    g: 0,
-    b: 0,
-    a: 255,
-};
-
 impl ColorSpace for Grayscale {
     fn new() -> Self {
         Grayscale { i: 0 }
@@ -249,3 +229,37 @@ impl<T: ColorSpace + Copy> Image<T> {
         Ok(())
     }
 }
+
+pub const WHITE: RGBA = RGBA {
+    r: 255,
+    g: 255,
+    b: 255,
+    a: 255,
+};
+pub const BLACK: RGBA = RGBA {
+    r: 0,
+    g: 0,
+    b: 0,
+    a: 255,
+};
+
+pub const RED: RGBA = RGBA {
+    r: 255,
+    g: 0,
+    b: 0,
+    a: 255,
+};
+
+pub const GREEN: RGBA = RGBA {
+    r: 0,
+    g: 255,
+    b: 0,
+    a: 255,
+};
+
+pub const BLUE: RGBA = RGBA {
+    r: 0,
+    g: 0,
+    b: 255,
+    a: 255,
+};

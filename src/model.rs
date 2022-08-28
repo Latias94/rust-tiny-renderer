@@ -1,36 +1,6 @@
-use num::Float;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-
-#[derive(Debug)]
-pub struct Vec3<T: Float> {
-    pub x: T,
-    pub y: T,
-    pub z: T,
-}
-
-impl<T: Float> Vec3<T> {
-    pub fn from(x: T, y: T, z: T) -> Self {
-        Vec3 { x, y, z }
-    }
-
-    pub fn from_slice(slice: &[T]) -> Self {
-        Vec3 {
-            x: slice[0],
-            y: slice[1],
-            z: slice[2],
-        }
-    }
-}
-impl<T: Float> Default for Vec3<T> {
-    fn default() -> Self {
-        Vec3 {
-            x: T::zero(),
-            y: T::zero(),
-            z: T::zero(),
-        }
-    }
-}
+use crate::math::Vec3;
 
 // http://en.wikipedia.org/wiki/Wavefront_.obj_file
 pub struct Model {
