@@ -87,6 +87,7 @@ impl<T: ColorSpace + Copy> Rasterizer<T> {
     /// 3. Draw a horizontal line segment between the left and the right boundary points.
     /// 根据三个顶点的 y 坐标判定是否有两个相等，有则判断是平底还是平顶三角形，直接画找到 y 值在中间的点，划分出上下两个三角形，画两个
     /// 另一种画三角形是遍历 bounding box 的点，判断点在不在三角形内。
+    /// http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
     pub fn triangle(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>, color: T) {
         let mut t0 = t0;
         let mut t1 = t1;
