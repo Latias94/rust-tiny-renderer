@@ -1,5 +1,5 @@
-use std::io;
 use std::fs::File;
+use std::io;
 use std::io::Write;
 use std::mem;
 use std::slice;
@@ -16,18 +16,40 @@ pub struct Grayscale {
 
 #[derive(Copy, Clone)]
 pub struct RGB {
-    pub r: u8,
-    pub g: u8,
+    // BGR
     pub b: u8,
+    pub g: u8,
+    pub r: u8,
 }
 
 #[derive(Copy, Clone)]
 pub struct RGBA {
-    pub r: u8,
-    pub g: u8,
+    // BGRA
     pub b: u8,
+    pub g: u8,
+    pub r: u8,
     pub a: u8,
 }
+
+pub const WHITE: RGBA = RGBA {
+    r: 255,
+    g: 255,
+    b: 255,
+    a: 255,
+};
+pub const BLACK: RGBA = RGBA {
+    r: 0,
+    g: 0,
+    b: 0,
+    a: 255,
+};
+
+pub const RED: RGBA = RGBA {
+    r: 255,
+    g: 0,
+    b: 0,
+    a: 255,
+};
 
 impl ColorSpace for Grayscale {
     fn new() -> Self {
@@ -46,14 +68,19 @@ impl ColorSpace for RGB {
 
 impl ColorSpace for RGBA {
     fn new() -> Self {
-        RGBA { r: 0, g: 0, b: 0, a: 0 }
+        RGBA {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        }
     }
     const BYTE_PER_PIXEL: u8 = 4;
 }
 
 pub struct Image<T: ColorSpace> {
-    width: i32,
-    height: i32,
+    width: usize,
+    height: usize,
     data: Vec<T>,
 }
 
@@ -89,7 +116,7 @@ struct Header {
 }
 
 impl<T: ColorSpace + Copy> Image<T> {
-    pub fn new(width: i32, height: i32) -> Self {
+    pub fn new(width: usize, height: usize) -> Self {
         Image {
             width,
             height,
@@ -97,12 +124,24 @@ impl<T: ColorSpace + Copy> Image<T> {
         }
     }
 
-    pub fn set(&mut self, x: i32, y: i32, c: T) -> Result<(), String> {
+    pub fn set(&mut self, x: usize, y: usize, c: T) -> Result<(), String> {
         if x >= self.width || y >= self.height {
             return Err(String::from("Coordinates out of bounds for image"));
         }
-        self.data[(x + y * self.width) as usize] = c;
+        self.set_unchecked(x, y, c);
         Ok(())
+    }
+
+    pub fn set_unchecked(&mut self, x: usize, y: usize, c: T) {
+        self.data[x + y * self.width] = c;
+    }
+
+    pub fn clear(&mut self, c: T) {
+        for x in 0..self.width {
+            for y in 0..self.height {
+                self.set_unchecked(x, y, c);
+            }
+        }
     }
 
     /// rle: run-length encoding
@@ -149,7 +188,8 @@ impl<T: ColorSpace + Copy> Image<T> {
                 .expect("Error writing developer area ref to TGA file");
             f.write_all(&EXTENSION_AREA_REF)
                 .expect("Error writing extension area ref to TGA file");
-            f.write_all(FOOTER).expect("Error writing footer to TGA file");
+            f.write_all(FOOTER)
+                .expect("Error writing footer to TGA file");
         }
         Ok(())
     }
