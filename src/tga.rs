@@ -1,7 +1,7 @@
 use rand::Rng;
 use std::fs::File;
 use std::io;
-use std::io::Write;
+use std::io::{Cursor, Write};
 use std::mem;
 use std::path::Path;
 use std::slice;
@@ -140,7 +140,7 @@ impl<T: ColorSpace + Copy> Image<T> {
     /// 经过变动长度编码法可将资料压缩为 4A3B2C1D4E（由 14 个单位转成 10 个单位）。
     /// 简言之，其优点在于将重复性高的资料量压缩成小单位；然而，其缺点在于——若该资料出现频率不高，可能导致压缩结果资料量比原始资料大，
     /// 例如：原始资料 "ABCDE"，压缩结果为 "1A1B1C1D1E"（由 5 个单位转成 10 个单位）。
-    fn write_rle_data(&self, out: &mut dyn Write) -> io::Result<()> {
+    fn write_rle_data(&self, out: &mut Box<dyn Write>) -> io::Result<()> {
         const MAX_CHUNK_LENGTH: u8 = 128;
         let data = unsafe { slice_to_u8_slice(&self.data[..]) };
         let n_pixels = self.width * self.height;
@@ -188,7 +188,7 @@ impl<T: ColorSpace + Copy> Image<T> {
     }
 
     /// rle: run-length encoding
-    pub fn write_to_file<P: AsRef<Path>>(&self, path: P, vflip: bool, rle: bool) -> io::Result<()> {
+    pub fn write(&self, writer: &mut Box<dyn Write>, vflip: bool, rle: bool) -> io::Result<()> {
         let h = Header {
             width: self.width as u16,
             height: self.height as u16,
@@ -207,27 +207,84 @@ impl<T: ColorSpace + Copy> Image<T> {
             image_descriptor: if vflip { 0x00 } else { 0x20 },
             ..Header::default()
         };
-
-        let mut f = File::create(path)?;
         unsafe {
-            f.write_all(struct_to_u8_slice(&h))?;
+            writer.write_all(struct_to_u8_slice(&h))?;
             if !rle {
                 println!("writing non run-length encoding");
-                f.write_all(slice_to_u8_slice(&self.data[..]))
+                writer
+                    .write_all(slice_to_u8_slice(&self.data[..]))
                     .expect("Error dumping data to TGA file.");
             } else {
                 println!("writing run-length encoding");
-                self.write_rle_data(&mut f)
+                self.write_rle_data(writer)
                     .expect("Error dumping RLE data to TGA file");
             }
-            f.write_all(&DEVELOPER_AREA_REF)
+            writer
+                .write_all(&DEVELOPER_AREA_REF)
                 .expect("Error writing developer area ref to TGA file");
-            f.write_all(&EXTENSION_AREA_REF)
+            writer
+                .write_all(&EXTENSION_AREA_REF)
                 .expect("Error writing extension area ref to TGA file");
-            f.write_all(FOOTER)
+            writer
+                .write_all(FOOTER)
                 .expect("Error writing footer to TGA file");
         }
         Ok(())
+    }
+
+    /// rle: run-length encoding
+    pub fn write_cursor(
+        &self,
+        writer: &mut Cursor<Vec<u8>>,
+        vflip: bool,
+        rle: bool,
+    ) -> io::Result<()> {
+        let h = Header {
+            width: self.width as u16,
+            height: self.height as u16,
+            pixel_depth: T::BYTE_PER_PIXEL << 3, // 8 bits per byte
+            image_type: if T::BYTE_PER_PIXEL == Grayscale::BYTE_PER_PIXEL {
+                match rle {
+                    true => 11, // Compressed, black and white images.
+                    false => 3, // Uncompressed, black and white images.
+                }
+            } else {
+                match rle {
+                    true => 10, // Runlength encoded RGB images.
+                    false => 2, // Uncompressed, RGB images.
+                }
+            },
+            image_descriptor: if vflip { 0x00 } else { 0x20 },
+            ..Header::default()
+        };
+        unsafe {
+            writer.write_all(struct_to_u8_slice(&h))?;
+            if !rle {
+                println!("writing non run-length encoding");
+                writer
+                    .write_all(slice_to_u8_slice(&self.data[..]))
+                    .expect("Error dumping data to TGA file.");
+            } else {
+                println!("writing run-length encoding");
+                // self.write_rle_data(writer)
+                //     .expect("Error dumping RLE data to TGA file");
+            }
+            // writer
+            //     .write_all(&DEVELOPER_AREA_REF)
+            //     .expect("Error writing developer area ref to TGA file");
+            // writer
+            //     .write_all(&EXTENSION_AREA_REF)
+            //     .expect("Error writing extension area ref to TGA file");
+            // writer
+            //     .write_all(FOOTER)
+            //     .expect("Error writing footer to TGA file");
+        }
+        Ok(())
+    }
+
+    pub fn write_to_file<P: AsRef<Path>>(&self, path: P, vflip: bool, rle: bool) -> io::Result<()> {
+        let mut writer: Box<dyn Write> = Box::new(File::create(&path)?);
+        self.write(&mut writer, vflip, rle)
     }
 }
 
@@ -265,6 +322,23 @@ impl From<RGBA> for RGB {
             r: rgba.r,
             g: rgba.g,
             b: rgba.b,
+        }
+    }
+}
+
+impl From<RGBA> for image::Rgba<u8> {
+    fn from(rgba: RGBA) -> Self {
+        Self([rgba.r, rgba.g, rgba.b, rgba.a])
+    }
+}
+
+impl From<image::Rgba<u8>> for RGBA {
+    fn from(rgba: image::Rgba<u8>) -> Self {
+        Self {
+            r: rgba[0],
+            g: rgba[1],
+            b: rgba[2],
+            a: rgba[3],
         }
     }
 }

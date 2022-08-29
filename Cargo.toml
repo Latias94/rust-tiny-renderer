@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 num = "0.4"
 rand = "0.8"
+eframe = "0.19"
+image = { version = "0.24", features = ["png"] }
+egui_extras = { version = "0.19", features = ["image"] }

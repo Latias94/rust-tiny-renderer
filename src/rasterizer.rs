@@ -1,31 +1,36 @@
 use crate::math::Vec2;
-use crate::tga::{ColorSpace, Image, GREEN, RED, RGBA, WHITE};
+use crate::tga::{GREEN, RED, WHITE};
+use image::{ImageBuffer, Rgba, RgbaImage};
 use std::mem::swap;
 use std::path::Path;
 
-pub struct Rasterizer<T: ColorSpace + Copy> {
-    pub image: Image<T>,
+pub struct Rasterizer {
+    pub image: ImageBuffer<Rgba<u8>, Vec<u8>>,
 }
 
-impl<T: ColorSpace + Copy> Rasterizer<T> {
+impl Rasterizer {
     pub fn new(width: usize, height: usize) -> Self {
         Self {
-            image: Image::new(width, height),
+            image: RgbaImage::new(width as u32, height as u32),
         }
     }
 
-    pub fn clear(&mut self, color: T) {
-        self.image.clear(color);
+    pub fn clear(&mut self, color: Rgba<u8>) {
+        for x in 0..self.image.width() {
+            for y in 0..self.image.height() {
+                self.set(x as usize, y as usize, color).ok();
+            }
+        }
     }
 
     pub fn write_to_file<P: AsRef<Path>>(&mut self, path: P) {
-        self.image.write_to_file(path, true, true).unwrap();
+        self.image.save(path).unwrap();
     }
 
     /// Both the multiplication/division and the use of floating-point numbers can be avoided
     /// by using a specific version of Bresenham’s algorithm.
     /// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-    pub fn line(&mut self, p0: Vec2<isize>, p1: Vec2<isize>, color: T) {
+    pub fn line(&mut self, p0: Vec2<isize>, p1: Vec2<isize>, color: Rgba<u8>) {
         let mut x0 = p0.x;
         let mut y0 = p0.y;
         let mut x1 = p1.x;
@@ -62,11 +67,11 @@ impl<T: ColorSpace + Copy> Rasterizer<T> {
             if steep {
                 // Remember the transpose? This is where we undo it,
                 // by swapping our y and x coordinates again
-                // self.image.set_unchecked(y as usize, x as usize, color);
-                self.image.set(y as usize, x as usize, color).ok();
+                // self.set_unchecked(y as usize, x as usize, color);
+                self.set(y as usize, x as usize, color).ok();
             } else {
-                // self.image.set_unchecked(x as usize, y as usize, color);
-                self.image.set(x as usize, y as usize, color).ok();
+                // self.set_unchecked(x as usize, y as usize, color);
+                self.set(x as usize, y as usize, color).ok();
             }
             error2 += derror2;
             if error2 > dx {
@@ -88,7 +93,7 @@ impl<T: ColorSpace + Copy> Rasterizer<T> {
     /// 根据三个顶点的 y 坐标判定是否有两个相等，有则判断是平底还是平顶三角形，直接画找到 y 值在中间的点，划分出上下两个三角形，画两个
     /// 另一种画三角形是遍历 bounding box 的点，判断点在不在三角形内。
     /// http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
-    pub fn triangle(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>, color: T) {
+    pub fn triangle(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>, color: Rgba<u8>) {
         let mut t0 = t0;
         let mut t1 = t1;
         let mut t2 = t2;
@@ -128,13 +133,41 @@ impl<T: ColorSpace + Copy> Rasterizer<T> {
             }
             // 因为外面先从 y 遍历，因此横向 x 可能会相差大于 1 个像素，因此要横向填充好
             for x in a.x..=b.x {
-                self.image.set(x as usize, (t0.y + i) as usize, color).ok(); // attention, due to int casts t0.y+i != a.y
+                self.set(x as usize, (t0.y + i) as usize, color).ok(); // attention, due to int casts t0.y+i != a.y
             }
         }
     }
+
+    pub fn set(&mut self, x: usize, y: usize, c: Rgba<u8>) -> Result<(), String> {
+        let width = self.image.width();
+        let height = self.image.height();
+        if x > width as usize {
+            return Err(format!(
+                "Coordinates out of bounds for image x >= width: {x} >= {}",
+                width
+            ));
+            // flip Y
+        } else if y == 0 {
+            return Err(format!(
+                "Coordinates out of bounds for image y >= height: {y} >= {}",
+                height
+            ));
+        }
+        let color: Rgba<u8> = c;
+        // flip Y
+        self.image.put_pixel(x as u32, height - y as u32, color);
+        Ok(())
+    }
+
+    pub fn set_unchecked(&mut self, x: usize, y: usize, c: Rgba<u8>) -> Result<(), String> {
+        let color: Rgba<u8> = c;
+        let height = self.image.height();
+        self.image.put_pixel(x as u32, height - y as u32, color);
+        Ok(())
+    }
 }
 
-impl Rasterizer<RGBA> {
+impl Rasterizer {
     pub fn triangle_test_1(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>) {
         let mut t0 = t0;
         let mut t1 = t1;
@@ -148,9 +181,9 @@ impl Rasterizer<RGBA> {
         if t1.y > t2.y {
             swap(&mut t1, &mut t2);
         }
-        self.line(t0, t1, GREEN);
-        self.line(t1, t2, GREEN);
-        self.line(t2, t0, RED);
+        self.line(t0, t1, GREEN.into());
+        self.line(t1, t2, GREEN.into());
+        self.line(t2, t0, RED.into());
     }
 
     pub fn triangle_test_2(&mut self, t0: Vec2<isize>, t1: Vec2<isize>, t2: Vec2<isize>) {
@@ -179,8 +212,8 @@ impl Rasterizer<RGBA> {
             // 以t1.y水平为分界线，划分两个三角形后，算出两个边当前y值的点，分别为 p0, p1
             let p0 = t0 + alpha_t;
             let p1 = t0 + beta_t;
-            self.image.set(p0.x as usize, y as usize, RED).ok();
-            self.image.set(p1.x as usize, y as usize, GREEN).ok();
+            self.set(p0.x as usize, y as usize, RED.into()).ok();
+            self.set(p1.x as usize, y as usize, GREEN.into()).ok();
         }
     }
 
@@ -216,7 +249,7 @@ impl Rasterizer<RGBA> {
             }
             // 因为外面先从 y 遍历，因此横向 x 可能会相差大于 1 个像素，因此要横向填充好
             for x in a.x..=b.x {
-                self.image.set(x as usize, y as usize, RED).ok(); // attention, due to int casts t0.y+i != a.y
+                self.set(x as usize, y as usize, RED.into()).ok(); // attention, due to int casts t0.y+i != a.y
             }
         }
         // 上半个三角形
@@ -230,7 +263,7 @@ impl Rasterizer<RGBA> {
                 swap(&mut a, &mut b);
             }
             for x in a.x..=b.x {
-                self.image.set(x as usize, y as usize, WHITE).ok(); // attention, due to int casts t0.y+i != a.y
+                self.set(x as usize, y as usize, WHITE.into()).ok(); // attention, due to int casts t0.y+i != a.y
             }
         }
     }

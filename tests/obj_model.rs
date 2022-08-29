@@ -1,7 +1,7 @@
 use tinyrenderer::math::{Vec2, Vec3};
 use tinyrenderer::model::Model;
 use tinyrenderer::rasterizer::Rasterizer;
-use tinyrenderer::tga::{RGB, RGBA};
+use tinyrenderer::tga::{RGBA, WHITE};
 
 #[test]
 fn test_wire_render() {
@@ -10,11 +10,7 @@ fn test_wire_render() {
     let mut rasterizer = Rasterizer::new(width, height);
 
     let model = Model::from("model/african_head.obj").unwrap();
-    const WHITE: RGB = RGB {
-        r: 255,
-        g: 255,
-        b: 255,
-    };
+
     for i in 0..model.num_faces() {
         let face = model.face(i);
         for j in 0..3 {
@@ -26,11 +22,11 @@ fn test_wire_render() {
             let y0 = ((v0.y + 1.) * (height as f32) / 2.) as isize;
             let x1 = ((v1.x + 1.) * (width as f32) / 2.) as isize;
             let y1 = ((v1.y + 1.) * (height as f32) / 2.) as isize;
-            rasterizer.line(Vec2::new(x0, y0), Vec2::new(x1, y1), WHITE)
+            rasterizer.line(Vec2::new(x0, y0), Vec2::new(x1, y1), WHITE.into())
         }
     }
 
-    rasterizer.write_to_file("test.tga");
+    rasterizer.write_to_file("test.png");
 }
 
 #[test]
@@ -53,11 +49,11 @@ fn test_flat_shading_random_color_render() {
             screen_coords[0],
             screen_coords[1],
             screen_coords[2],
-            RGB::random_color(),
+            RGBA::random_color().into(),
         )
     }
 
-    rasterizer.write_to_file("test.tga");
+    rasterizer.write_to_file("test.png");
 }
 
 #[test]
@@ -84,7 +80,6 @@ fn test_calculate_flat_shading_render() {
         let mut normal = vector0.cross_product(vector1);
         normal = normal.normalize();
         let intensity = normal * light_dir;
-        // 点乘结果为负，说明光在三角形面的背面，因此剔除不渲染这些三角形，这就是 Back-face culling
         if intensity > 0_f32 {
             let gray_scale = (intensity * 255_f32) as u8;
             rasterizer.triangle(
@@ -96,12 +91,13 @@ fn test_calculate_flat_shading_render() {
                     g: gray_scale,
                     b: gray_scale,
                     a: 255,
-                },
+                }
+                .into(),
             )
         }
     }
 
-    rasterizer.write_to_file("test.tga");
+    rasterizer.write_to_file("test.png");
 }
 
 #[test]
@@ -142,10 +138,11 @@ fn test_flat_shading_render() {
                     g: gray_scale,
                     b: gray_scale,
                     a: 255,
-                },
+                }
+                .into(),
             )
         }
     }
 
-    rasterizer.write_to_file("test.tga");
+    rasterizer.write_to_file("test.png");
 }

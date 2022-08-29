@@ -6,7 +6,16 @@
 
 每个课程对应的代码通过 [branch](https://github.com/Latias94/rust-tiny-renderer/branches) 来划分。
 
+Install [Rust](https://www.rust-lang.org/) and run
+
+```shell
+# -r stands for --release
+cargo run -r
+```
+
 ## 部分截图
+
+egui 作为显示窗体。
 
 ![](misc/img/fill_triangle.png)
 
