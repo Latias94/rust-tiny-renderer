@@ -269,15 +269,15 @@ impl<T: ColorSpace + Copy> Image<T> {
                 // self.write_rle_data(writer)
                 //     .expect("Error dumping RLE data to TGA file");
             }
-            // writer
-            //     .write_all(&DEVELOPER_AREA_REF)
-            //     .expect("Error writing developer area ref to TGA file");
-            // writer
-            //     .write_all(&EXTENSION_AREA_REF)
-            //     .expect("Error writing extension area ref to TGA file");
-            // writer
-            //     .write_all(FOOTER)
-            //     .expect("Error writing footer to TGA file");
+            writer
+                .write_all(&DEVELOPER_AREA_REF)
+                .expect("Error writing developer area ref to TGA file");
+            writer
+                .write_all(&EXTENSION_AREA_REF)
+                .expect("Error writing extension area ref to TGA file");
+            writer
+                .write_all(FOOTER)
+                .expect("Error writing footer to TGA file");
         }
         Ok(())
     }
